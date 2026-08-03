@@ -18,15 +18,6 @@ targets:
         buildPhase: none
       - path: CREDITS.md
         buildPhase: resources
-      # Dev presets from the libprojectM test suite (LGPL-2.1, same source as the library)
-      - path: vendor/projectm/presets/tests/203-wave.milk
-        buildPhase: resources
-      - path: vendor/projectm/presets/tests/211-wave.milk
-        buildPhase: resources
-      - path: vendor/projectm/presets/tests/243-wave-smooth-90.milk
-        buildPhase: resources
-      - path: vendor/projectm/presets/tests/252-wavecode-spectrum2.milk
-        buildPhase: resources
     info:
       path: App/Info.plist
       properties:
@@ -45,6 +36,12 @@ targets:
         LIBRARY_SEARCH_PATHS: $(SRCROOT)/vendor/dist/lib
         LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         CODE_SIGN_IDENTITY: "-"
+    postBuildScripts:
+      - name: Copy presets and textures
+        script: |
+          rsync -a --delete --exclude .git "$SRCROOT/vendor/presets-cream-of-the-crop/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Presets/"
+          rsync -a --delete "$SRCROOT/vendor/presets-milkdrop-texture-pack/textures/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Textures/"
+        alwaysOutOfDate: true
     dependencies:
       # libprojectM is LGPL-2.1, linked dynamically (see THIRD-PARTY-NOTICES.md)
       - framework: vendor/dist/embed/libprojectM-4.4.dylib

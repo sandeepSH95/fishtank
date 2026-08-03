@@ -29,14 +29,19 @@ source files, and the licence is reproduced in `licenses/AudioCap-BSD-2-Clause.t
 and in the app's credits. AudioCap's private-TCC-API path (`ENABLE_TCC_SPI`) is not
 used.
 
-## Presets
+## Presets and textures
 
-During development the app bundles a test preset from the libprojectM repository
-(`presets/tests/211-wave.milk`), covered by the LGPL-2.1 notice above.
+The app bundles the Cream of the Crop preset collection, compiled by Jason Fletcher
+and mirrored by the projectM team
+(<https://github.com/projectM-visualizer/presets-cream-of-the-crop>, vendored at
+`vendor/presets-cream-of-the-crop`), and the MilkDrop community texture pack
+(<https://github.com/projectM-visualizer/presets-milkdrop-texture-pack>).
 
 `.milk` presets are community works from the Winamp era, generally shared without
-explicit licence terms. The app ships a small curated set, credits authors by name in
-the UI, and supports a user preset folder as the primary way to add more. Takedown
+explicit licence terms; each preset author holds copyright on their work. The
+collection's own licence statement (shipped in the bundle as `Presets/LICENSE.md`)
+notes they were freely released and are treated as freely redistributable. The app
+credits authors by name in the UI, supports a user preset folder, and takedown
 requests from preset authors will be honoured.
 
 ## Reference-only projects

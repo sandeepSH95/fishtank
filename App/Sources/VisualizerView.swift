@@ -62,12 +62,19 @@ final class VisualizerView: NSOpenGLView {
         projectm_set_preset_duration(handle, 60)
         drainBuffer = [Float](repeating: 0, count: Int(projectm_pcm_get_max_samples()) * 2)
 
+        if let textures = Bundle.main.resourceURL?.appendingPathComponent("Textures") {
+            textures.path.withCString { cString in
+                var paths: UnsafePointer<CChar>? = cString
+                projectm_set_texture_search_paths(handle, &paths, 1)
+            }
+        }
+
         if let playlist = projectm_playlist_create(handle) {
             self.playlist = playlist
-            let presets = (Bundle.main.urls(forResourcesWithExtension: "milk", subdirectory: nil) ?? [])
-                .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            for preset in presets {
-                projectm_playlist_add_preset(playlist, preset.path, false)
+            projectm_playlist_set_retry_count(playlist, 5)
+            if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Presets") {
+                let count = projectm_playlist_add_path(playlist, bundled.path, true, false)
+                NSLog("loaded %u bundled presets", count)
             }
             try? FileManager.default.createDirectory(at: Self.presetsFolder, withIntermediateDirectories: true)
             projectm_playlist_add_path(playlist, Self.presetsFolder.path, true, false)

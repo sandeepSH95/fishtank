@@ -1,23 +1,26 @@
 # fishtank
 
-Ambient [MilkDrop](https://www.geisswerks.com/milkdrop/) visualizer for macOS. A small
-always-on-top window renders classic Winamp-era visuals that react to whatever audio
-the machine is playing, captured with Core Audio process taps — no virtual audio
-device or routing setup required.
+A fish tank for your desk, except it plays [MilkDrop](https://www.geisswerks.com/milkdrop/)
+visuals. A small always-on-top window of classic Winamp-era graphics that reacts to
+whatever audio your Mac is playing — Spotify, YouTube, anything — captured with Core
+Audio process taps, no virtual audio device or routing setup required.
+
+It's meant to sit on your desktop like a piece of furniture: drag it into a corner,
+let it run, forget about it. It sleeps when the music stops.
 
 Rendering is done by [libprojectM](https://github.com/projectM-visualizer/projectm).
 Requires macOS 14.4+.
 
 ## Status
 
-Early development, not yet usable.
+Early development.
 
 - [x] libprojectM built from source and linked
 - [x] App skeleton (menu bar only, no Dock icon)
-- [ ] Rendering
-- [ ] System audio capture
-- [ ] Floating window behaviour
-- [ ] Bundled presets
+- [x] Rendering
+- [x] System audio capture
+- [x] Floating window behaviour
+- [x] Bundled presets (Cream of the Crop collection)
 - [ ] Signed release
 
 ## Building
