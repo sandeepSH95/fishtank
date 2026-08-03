@@ -1,0 +1,4 @@
+module CAudioRing {
+    header "audio_ring.h"
+    export *
+}

@@ -5,9 +5,11 @@ import CProjectM
 final class VisualizerView: NSOpenGLView {
     private var projectM: projectm_handle?
     private var displayLink: CADisplayLink?
-    private var audioSource = SineAudioSource()
+    private let audioEngine: AudioTapEngine
+    private var drainBuffer: [Float] = []
 
-    override init(frame: NSRect) {
+    init(frame: NSRect, audioEngine: AudioTapEngine) {
+        self.audioEngine = audioEngine
         let attributes: [NSOpenGLPixelFormatAttribute] = [
             NSOpenGLPixelFormatAttribute(NSOpenGLPFAOpenGLProfile),
             NSOpenGLPixelFormatAttribute(NSOpenGLProfileVersion4_1Core),
@@ -45,6 +47,7 @@ final class VisualizerView: NSOpenGLView {
         projectm_set_mesh_size(handle, 48, 32)
         projectm_set_aspect_correction(handle, true)
         projectm_set_preset_locked(handle, true)
+        drainBuffer = [Float](repeating: 0, count: Int(projectm_pcm_get_max_samples()) * 2)
 
         if let preset = Bundle.main.url(forResource: "211-wave", withExtension: "milk") {
             projectm_load_preset_file(handle, preset.path, false)
@@ -67,7 +70,14 @@ final class VisualizerView: NSOpenGLView {
     @objc private func renderFrame() {
         guard let handle = projectM, let context = openGLContext else { return }
         context.makeCurrentContext()
-        audioSource.pump(into: handle)
+        while true {
+            let samplesRead = drainBuffer.withUnsafeMutableBufferPointer { pointer in
+                audioEngine.read(into: pointer.baseAddress!, maxSamples: pointer.count)
+            }
+            guard samplesRead >= 2 else { break }
+            projectm_pcm_add_float(handle, drainBuffer, UInt32(samplesRead / 2), PROJECTM_STEREO)
+            if samplesRead < drainBuffer.count { break }
+        }
         glClearColor(0, 0, 0, 1)
         glClear(GLbitfield(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
         projectm_opengl_render_frame(handle)

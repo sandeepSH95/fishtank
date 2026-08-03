@@ -4,6 +4,7 @@ import CProjectM
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var window: NSWindow?
+    private let audioEngine = AudioTapEngine()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         var major: Int32 = 0
@@ -20,7 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = "Fishtank"
         window.isReleasedWhenClosed = false
-        window.contentView = VisualizerView(frame: window.contentLayoutRect)
+
+        do {
+            try audioEngine.start()
+            NSLog("audio tap running at %.0f Hz, %d channels", audioEngine.sampleRate, audioEngine.channelCount)
+        } catch {
+            NSLog("audio capture unavailable: \(error)")
+        }
+
+        window.contentView = VisualizerView(frame: window.contentLayoutRect, audioEngine: audioEngine)
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
@@ -39,5 +48,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
         item.menu = menu
         statusItem = item
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        audioEngine.stop()
     }
 }
