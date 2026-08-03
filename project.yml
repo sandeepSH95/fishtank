@@ -15,6 +15,9 @@ targets:
       - App/Sources
       - path: App/CProjectM
         buildPhase: none
+      # Dev preset from the libprojectM test suite (LGPL-2.1, same source as the library)
+      - path: vendor/projectm/presets/tests/211-wave.milk
+        buildPhase: resources
     info:
       path: App/Info.plist
       properties:

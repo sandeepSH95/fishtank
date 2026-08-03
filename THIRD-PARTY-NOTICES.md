@@ -31,6 +31,9 @@ used.
 
 ## Presets
 
+During development the app bundles a test preset from the libprojectM repository
+(`presets/tests/211-wave.milk`), covered by the LGPL-2.1 notice above.
+
 `.milk` presets are community works from the Winamp era, generally shared without
 explicit licence terms. The app ships a small curated set, credits authors by name in
 the UI, and supports a user preset folder as the primary way to add more. Takedown

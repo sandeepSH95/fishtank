@@ -3,6 +3,7 @@ import CProjectM
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
+    private var window: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         var major: Int32 = 0
@@ -10,6 +11,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var patch: Int32 = 0
         projectm_get_version_components(&major, &minor, &patch)
         NSLog("libprojectM %d.%d.%d", major, minor, patch)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Fishtank"
+        window.isReleasedWhenClosed = false
+        window.contentView = VisualizerView(frame: window.contentLayoutRect)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        self.window = window
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(
