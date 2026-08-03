@@ -222,18 +222,36 @@ final class VisualizerView: NSOpenGLView {
         projectm_set_preset_locked(handle, locked)
     }
 
+    func allPresets() -> [PresetItem] {
+        guard let playlist else { return [] }
+        let size = projectm_playlist_size(playlist)
+        var items: [PresetItem] = []
+        items.reserveCapacity(Int(size))
+        for index in 0..<size {
+            guard let name = projectm_playlist_item(playlist, index) else { continue }
+            let filename = String(cString: name)
+            projectm_playlist_free_string(name)
+            let parsed = PresetItem.parse(filename: filename)
+            items.append(PresetItem(id: index, title: parsed.title, author: parsed.author))
+        }
+        return items
+    }
+
+    func selectPreset(at index: UInt32) {
+        guard let playlist else { return }
+        projectm_playlist_set_position(playlist, index, true)
+    }
+
     fileprivate func presetDidSwitch(to index: UInt32) {
         guard let playlist, let name = projectm_playlist_item(playlist, index) else { return }
         let filename = String(cString: name)
         projectm_playlist_free_string(name)
 
-        // Preset filenames conventionally start with the author: "Author - Title.milk"
-        let stem = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
-        let parts = stem.components(separatedBy: " - ")
-        if parts.count >= 2 {
-            overlay?.show("\(parts.dropFirst().joined(separator: " - ")) · \(parts[0])")
+        let parsed = PresetItem.parse(filename: filename)
+        if let author = parsed.author {
+            overlay?.show("\(parsed.title) · \(author)")
         } else {
-            overlay?.show(stem)
+            overlay?.show(parsed.title)
         }
     }
 

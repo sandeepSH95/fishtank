@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import CProjectM
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -58,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shuffle.state = UserDefaults.standard.bool(forKey: "shufflePresets") ? .on : .off
         menu.addItem(shuffle)
         menu.addItem(makeItem("Lock Preset", #selector(toggleLock), ""))
+        menu.addItem(makeItem("Browse Presets", #selector(showPresetBrowser), "b"))
         menu.addItem(.separator())
         menu.addItem(makeItem("Open Presets Folder", #selector(openPresetsFolder), ""))
         menu.addItem(makeItem("Credits", #selector(showCredits), ""))
@@ -120,6 +122,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             at: VisualizerView.presetsFolder, withIntermediateDirectories: true
         )
         NSWorkspace.shared.open(VisualizerView.presetsFolder)
+    }
+
+    private var presetBrowserWindow: NSWindow?
+
+    @objc private func showPresetBrowser() {
+        if presetBrowserWindow == nil, let view = visualizerView {
+            let browser = PresetBrowserView(presets: view.allPresets()) { [weak self] index in
+                self?.visualizerView?.selectPreset(at: index)
+            }
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 340, height: 520),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Presets"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView: browser)
+            window.center()
+            presetBrowserWindow = window
+        }
+        presetBrowserWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
     }
 
     @objc private func showCredits() {
