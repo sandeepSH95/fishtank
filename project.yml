@@ -16,6 +16,8 @@ targets:
       - App/CAudioRing
       - path: App/CProjectM
         buildPhase: none
+      - path: CREDITS.md
+        buildPhase: resources
       # Dev presets from the libprojectM test suite (LGPL-2.1, same source as the library)
       - path: vendor/projectm/presets/tests/203-wave.milk
         buildPhase: resources

@@ -3,11 +3,16 @@ import OpenGL.GL3
 import CProjectM
 
 final class VisualizerView: NSOpenGLView {
+    static let presetsFolder = FileManager.default
+        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Fishtank/Presets", isDirectory: true)
+
     private var projectM: projectm_handle?
     private var playlist: projectm_playlist_handle?
     private var displayLink: CADisplayLink?
     private let audioEngine: AudioTapEngine
     private var drainBuffer: [Float] = []
+    private var overlay: PresetOverlay?
 
     private static let silenceThreshold: Float = 0.001
     private static let silenceTimeout: CFTimeInterval = 5
@@ -64,7 +69,20 @@ final class VisualizerView: NSOpenGLView {
             for preset in presets {
                 projectm_playlist_add_preset(playlist, preset.path, false)
             }
-            projectm_playlist_set_position(playlist, 0, true)
+            try? FileManager.default.createDirectory(at: Self.presetsFolder, withIntermediateDirectories: true)
+            projectm_playlist_add_path(playlist, Self.presetsFolder.path, true, false)
+
+            projectm_playlist_set_preset_switched_event_callback(
+                playlist, presetSwitchedCallback, Unmanaged.passUnretained(self).toOpaque()
+            )
+
+            let shuffle = UserDefaults.standard.bool(forKey: "shufflePresets")
+            projectm_playlist_set_shuffle(playlist, shuffle)
+            if shuffle {
+                projectm_playlist_play_next(playlist, true)
+            } else {
+                projectm_playlist_set_position(playlist, 0, true)
+            }
         }
 
         let link = displayLink(target: self, selector: #selector(renderFrame))
@@ -75,8 +93,79 @@ final class VisualizerView: NSOpenGLView {
 
     override var mouseDownCanMoveWindow: Bool { true }
 
+    private static let cornerHitSize: CGFloat = 14
+
+    private enum Corner {
+        case bottomLeft, bottomRight, topLeft, topRight
+    }
+
+    private func corner(at point: NSPoint) -> Corner? {
+        let s = Self.cornerHitSize
+        let left = point.x < s
+        let right = point.x > bounds.maxX - s
+        let bottom = point.y < s
+        let top = point.y > bounds.maxY - s
+        if left && bottom { return .bottomLeft }
+        if right && bottom { return .bottomRight }
+        if left && top { return .topLeft }
+        if right && top { return .topRight }
+        return nil
+    }
+
     override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+        let point = convert(event.locationInWindow, from: nil)
+        if let corner = corner(at: point) {
+            resize(from: corner)
+        } else {
+            window?.performDrag(with: event)
+        }
+    }
+
+    private func resize(from corner: Corner) {
+        guard let window else { return }
+        let start = window.frame
+        let anchor: NSPoint
+        switch corner {
+        case .bottomLeft: anchor = NSPoint(x: start.maxX, y: start.maxY)
+        case .bottomRight: anchor = NSPoint(x: start.minX, y: start.maxY)
+        case .topLeft: anchor = NSPoint(x: start.maxX, y: start.minY)
+        case .topRight: anchor = NSPoint(x: start.minX, y: start.minY)
+        }
+        while true {
+            guard let event = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]),
+                  event.type == .leftMouseDragged else { break }
+            let mouse = NSEvent.mouseLocation
+            let width = max(window.minSize.width, abs(mouse.x - anchor.x))
+            let height = max(window.minSize.height, abs(mouse.y - anchor.y))
+            var frame = NSRect(x: anchor.x, y: anchor.y, width: width, height: height)
+            if mouse.x < anchor.x { frame.origin.x = anchor.x - width }
+            if mouse.y < anchor.y { frame.origin.y = anchor.y - height }
+            window.setFrame(frame, display: true)
+            renderFrame()
+        }
+    }
+
+    override func resetCursorRects() {
+        let s = Self.cornerHitSize
+        let corners: [(NSRect, Corner)] = [
+            (NSRect(x: 0, y: 0, width: s, height: s), .bottomLeft),
+            (NSRect(x: bounds.maxX - s, y: 0, width: s, height: s), .bottomRight),
+            (NSRect(x: 0, y: bounds.maxY - s, width: s, height: s), .topLeft),
+            (NSRect(x: bounds.maxX - s, y: bounds.maxY - s, width: s, height: s), .topRight),
+        ]
+        for (rect, corner) in corners {
+            addCursorRect(rect, cursor: resizeCursor(for: corner))
+        }
+    }
+
+    private func resizeCursor(for corner: Corner) -> NSCursor {
+        guard #available(macOS 15.0, *) else { return .crosshair }
+        switch corner {
+        case .bottomLeft: return .frameResize(position: .bottomLeft, directions: .all)
+        case .bottomRight: return .frameResize(position: .bottomRight, directions: .all)
+        case .topLeft: return .frameResize(position: .topLeft, directions: .all)
+        case .topRight: return .frameResize(position: .topRight, directions: .all)
+        }
     }
 
     override func viewDidMoveToWindow() {
@@ -89,6 +178,9 @@ final class VisualizerView: NSOpenGLView {
                 name: NSWindow.didChangeOcclusionStateNotification,
                 object: window
             )
+            if overlay == nil {
+                overlay = PresetOverlay(parent: window)
+            }
         }
     }
 
@@ -108,6 +200,31 @@ final class VisualizerView: NSOpenGLView {
     func playPreviousPreset() {
         guard let playlist else { return }
         projectm_playlist_play_previous(playlist, true)
+    }
+
+    func setShuffle(_ enabled: Bool) {
+        guard let playlist else { return }
+        projectm_playlist_set_shuffle(playlist, enabled)
+    }
+
+    func setPresetLocked(_ locked: Bool) {
+        guard let handle = projectM else { return }
+        projectm_set_preset_locked(handle, locked)
+    }
+
+    fileprivate func presetDidSwitch(to index: UInt32) {
+        guard let playlist, let name = projectm_playlist_item(playlist, index) else { return }
+        let filename = String(cString: name)
+        projectm_playlist_free_string(name)
+
+        // Preset filenames conventionally start with the author: "Author - Title.milk"
+        let stem = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
+        let parts = stem.components(separatedBy: " - ")
+        if parts.count >= 2 {
+            overlay?.show("\(parts.dropFirst().joined(separator: " - ")) · \(parts[0])")
+        } else {
+            overlay?.show(stem)
+        }
     }
 
     @objc private func occlusionChanged() {
@@ -180,11 +297,22 @@ final class VisualizerView: NSOpenGLView {
         NotificationCenter.default.removeObserver(self)
         wakeTimer?.invalidate()
         displayLink?.invalidate()
+        if let playlist {
+            projectm_playlist_set_preset_switched_event_callback(playlist, nil, nil)
+        }
         if let handle = projectM {
             projectm_destroy(handle)
         }
         if let playlist {
             projectm_playlist_destroy(playlist)
         }
+    }
+}
+
+private let presetSwitchedCallback: projectm_playlist_preset_switched_event = { _, index, userData in
+    guard let userData else { return }
+    let view = Unmanaged<VisualizerView>.fromOpaque(userData).takeUnretainedValue()
+    DispatchQueue.main.async {
+        view.presetDidSwitch(to: index)
     }
 }

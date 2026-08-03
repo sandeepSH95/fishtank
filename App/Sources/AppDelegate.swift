@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let audioEngine = AudioTapEngine()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: ["shufflePresets": true])
+
         var major: Int32 = 0
         var minor: Int32 = 0
         var patch: Int32 = 0
@@ -24,7 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let window = FloatingWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300))
         let view = VisualizerView(frame: window.contentLayoutRect, audioEngine: audioEngine)
         window.contentView = view
-        window.center()
+        if !window.setFrameUsingName("Visualizer") {
+            window.center()
+        }
+        window.setFrameAutosaveName("Visualizer")
         window.orderFrontRegardless()
         self.window = window
         visualizerView = view
@@ -49,6 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(makeItem("Next Preset", #selector(nextPreset), "n"))
         menu.addItem(makeItem("Previous Preset", #selector(previousPreset), "p"))
+        let shuffle = makeItem("Shuffle Presets", #selector(toggleShuffle), "")
+        shuffle.state = UserDefaults.standard.bool(forKey: "shufflePresets") ? .on : .off
+        menu.addItem(shuffle)
+        menu.addItem(makeItem("Lock Preset", #selector(toggleLock), ""))
+        menu.addItem(.separator())
+        menu.addItem(makeItem("Open Presets Folder", #selector(openPresetsFolder), ""))
+        menu.addItem(makeItem("Credits", #selector(showCredits), ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
             title: "Quit Fishtank",
@@ -88,5 +100,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func previousPreset() {
         visualizerView?.playPreviousPreset()
+    }
+
+    @objc private func toggleShuffle(_ sender: NSMenuItem) {
+        let enabled = sender.state != .on
+        sender.state = enabled ? .on : .off
+        UserDefaults.standard.set(enabled, forKey: "shufflePresets")
+        visualizerView?.setShuffle(enabled)
+    }
+
+    @objc private func toggleLock(_ sender: NSMenuItem) {
+        let locked = sender.state != .on
+        sender.state = locked ? .on : .off
+        visualizerView?.setPresetLocked(locked)
+    }
+
+    @objc private func openPresetsFolder() {
+        try? FileManager.default.createDirectory(
+            at: VisualizerView.presetsFolder, withIntermediateDirectories: true
+        )
+        NSWorkspace.shared.open(VisualizerView.presetsFolder)
+    }
+
+    @objc private func showCredits() {
+        if creditsWindow == nil {
+            creditsWindow = makeCreditsWindow()
+        }
+        creditsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    private var creditsWindow: NSWindow?
+
+    private func makeCreditsWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Credits"
+        window.isReleasedWhenClosed = false
+        window.center()
+
+        let scroll = NSScrollView(frame: window.contentLayoutRect)
+        scroll.hasVerticalScroller = true
+        scroll.autoresizingMask = [.width, .height]
+
+        let text = NSTextView(frame: scroll.bounds)
+        text.isEditable = false
+        text.font = .systemFont(ofSize: 12)
+        text.textContainerInset = NSSize(width: 12, height: 12)
+        text.autoresizingMask = [.width]
+        if let url = Bundle.main.url(forResource: "CREDITS", withExtension: "md"),
+           let contents = try? String(contentsOf: url, encoding: .utf8) {
+            text.string = contents
+        }
+        scroll.documentView = text
+        window.contentView = scroll
+        return window
     }
 }
