@@ -34,6 +34,9 @@ final class VisualizerView: NSOpenGLView {
         ]
         super.init(frame: frame, pixelFormat: NSOpenGLPixelFormat(attributes: attributes)!)!
         wantsBestResolutionOpenGLSurface = true
+        wantsLayer = true
+        layer?.cornerRadius = 14
+        layer?.masksToBounds = true
     }
 
     @available(*, unavailable)
