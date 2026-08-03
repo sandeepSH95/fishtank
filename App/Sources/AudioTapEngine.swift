@@ -21,6 +21,7 @@ final class AudioTapEngine {
     private var ioProcID: AudioDeviceIOProcID?
     private var ring: OpaquePointer?
     private let queue = DispatchQueue(label: "fishtank.audio-tap", qos: .userInitiated)
+    private var deviceChangeListener: AudioObjectPropertyListenerBlock?
 
     func start() throws {
         let description = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
@@ -70,6 +71,8 @@ final class AudioTapEngine {
 
         err = AudioDeviceStart(aggregateID, ioProcID)
         guard err == noErr else { throw Error.coreAudio("start device", err) }
+
+        installDeviceChangeListenerIfNeeded()
     }
 
     func read(into buffer: UnsafeMutablePointer<Float>, maxSamples: Int) -> Int {
@@ -98,7 +101,40 @@ final class AudioTapEngine {
     }
 
     deinit {
+        if let listener = deviceChangeListener {
+            var address = defaultOutputDeviceAddress()
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &address, .main, listener
+            )
+        }
         stop()
+    }
+
+    // Capture follows the default output device; rebuild the tap when it changes.
+    private func installDeviceChangeListenerIfNeeded() {
+        guard deviceChangeListener == nil else { return }
+        var address = defaultOutputDeviceAddress()
+        let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            guard let self else { return }
+            self.stop()
+            do {
+                try self.start()
+            } catch {
+                NSLog("audio tap restart failed: \(error)")
+            }
+        }
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, .main, listener
+        )
+        deviceChangeListener = listener
+    }
+
+    private func defaultOutputDeviceAddress() -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultSystemOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
     }
 
     private func readTapStreamDescription() throws -> AudioStreamBasicDescription {

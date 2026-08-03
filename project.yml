@@ -16,8 +16,14 @@ targets:
       - App/CAudioRing
       - path: App/CProjectM
         buildPhase: none
-      # Dev preset from the libprojectM test suite (LGPL-2.1, same source as the library)
+      # Dev presets from the libprojectM test suite (LGPL-2.1, same source as the library)
+      - path: vendor/projectm/presets/tests/203-wave.milk
+        buildPhase: resources
       - path: vendor/projectm/presets/tests/211-wave.milk
+        buildPhase: resources
+      - path: vendor/projectm/presets/tests/243-wave-smooth-90.milk
+        buildPhase: resources
+      - path: vendor/projectm/presets/tests/252-wavecode-spectrum2.milk
         buildPhase: resources
     info:
       path: App/Info.plist
