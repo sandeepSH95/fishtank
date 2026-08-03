@@ -1,9 +1,14 @@
+
+
+
 # fishtank
 
 A fish tank for your desk, except it plays [MilkDrop](https://www.geisswerks.com/milkdrop/)
 visuals. A small always-on-top window of classic Winamp-era graphics that reacts to
 whatever audio your Mac is playing — Spotify, YouTube, anything — captured with Core
 Audio process taps, no virtual audio device or routing setup required.
+
+https://github.com/user-attachments/assets/2975fa65-dfa4-4aa2-9bd6-b1f6d9cdf1b3
 
 It's meant to sit on your desktop like a piece of furniture: drag it into a corner,
 let it run, forget about it. It sleeps when the music stops.
