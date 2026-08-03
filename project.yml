@@ -1,0 +1,43 @@
+# Regenerate the project with `xcodegen generate`. Fishtank.xcodeproj and
+# App/Info.plist are generated and gitignored.
+name: Fishtank
+options:
+  createIntermediateGroups: true
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: "14.4"
+    SWIFT_VERSION: "5.10"
+targets:
+  Fishtank:
+    type: application
+    platform: macOS
+    sources:
+      - App/Sources
+      - path: App/CProjectM
+        buildPhase: none
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Fishtank
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.4"
+        NSAudioCaptureUsageDescription: >-
+          Fishtank uses the audio your Mac is playing to drive its visuals.
+          Nothing is recorded or stored.
+    settings:
+      base:
+        # Placeholder bundle id until the app is named
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.fishtank
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/App/CProjectM
+        HEADER_SEARCH_PATHS: $(SRCROOT)/vendor/dist/include
+        LIBRARY_SEARCH_PATHS: $(SRCROOT)/vendor/dist/lib
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
+        CODE_SIGN_IDENTITY: "-"
+    dependencies:
+      # libprojectM is LGPL-2.1, linked dynamically (see THIRD-PARTY-NOTICES.md)
+      - framework: vendor/dist/embed/libprojectM-4.4.dylib
+        embed: true
+        codeSign: true
+      - framework: vendor/dist/embed/libprojectM-4-playlist.4.dylib
+        embed: true
+        codeSign: true
