@@ -11,18 +11,6 @@ let it run, forget about it. It sleeps when the music stops.
 Rendering is done by [libprojectM](https://github.com/projectM-visualizer/projectm).
 Requires macOS 14.4+.
 
-## Status
-
-Early development.
-
-- [x] libprojectM built from source and linked
-- [x] App skeleton (menu bar only, no Dock icon)
-- [x] Rendering
-- [x] System audio capture
-- [x] Floating window behaviour
-- [x] Bundled presets (Cream of the Crop collection)
-- [ ] Signed release
-
 ## Building
 
 Requires Xcode, CMake, and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
