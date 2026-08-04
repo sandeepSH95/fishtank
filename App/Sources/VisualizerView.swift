@@ -7,6 +7,8 @@ final class VisualizerView: NSOpenGLView {
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Fishtank/Presets", isDirectory: true)
 
+    static let defaultPreset = "Aderrasi - Chromatic Abyss (Refined Abyss Mix).milk"
+
     private var projectM: projectm_handle?
     private var playlist: projectm_playlist_handle?
     private var displayLink: CADisplayLink?
@@ -33,7 +35,7 @@ final class VisualizerView: NSOpenGLView {
             0,
         ]
         super.init(frame: frame, pixelFormat: NSOpenGLPixelFormat(attributes: attributes)!)!
-        wantsBestResolutionOpenGLSurface = true
+        wantsBestResolutionOpenGLSurface = false
         wantsLayer = true
         layer?.cornerRadius = 14
         layer?.masksToBounds = true
@@ -86,13 +88,10 @@ final class VisualizerView: NSOpenGLView {
                 playlist, presetSwitchedCallback, Unmanaged.passUnretained(self).toOpaque()
             )
 
-            let shuffle = UserDefaults.standard.bool(forKey: "shufflePresets")
-            projectm_playlist_set_shuffle(playlist, shuffle)
-            if shuffle {
-                projectm_playlist_play_next(playlist, true)
-            } else {
-                projectm_playlist_set_position(playlist, 0, true)
-            }
+            projectm_playlist_set_shuffle(playlist, UserDefaults.standard.bool(forKey: "shufflePresets"))
+            let startPreset = UserDefaults.standard.string(forKey: "currentPreset") ?? Self.defaultPreset
+            projectm_playlist_set_position(playlist, position(of: startPreset) ?? 0, true)
+            projectm_set_preset_locked(handle, UserDefaults.standard.bool(forKey: "lockPreset"))
         }
 
         let link = displayLink(target: self, selector: #selector(renderFrame))
@@ -224,17 +223,36 @@ final class VisualizerView: NSOpenGLView {
 
     func allPresets() -> [PresetItem] {
         guard let playlist else { return [] }
+        let bundledRoot = Bundle.main.resourceURL?.appendingPathComponent("Presets").path ?? ""
         let size = projectm_playlist_size(playlist)
         var items: [PresetItem] = []
         items.reserveCapacity(Int(size))
         for index in 0..<size {
             guard let name = projectm_playlist_item(playlist, index) else { continue }
-            let filename = String(cString: name)
+            let path = String(cString: name)
             projectm_playlist_free_string(name)
-            let parsed = PresetItem.parse(filename: filename)
-            items.append(PresetItem(id: index, title: parsed.title, author: parsed.author))
+            let parsed = PresetItem.parse(filename: path)
+            let category: String
+            if path.hasPrefix(bundledRoot) {
+                let relative = path.dropFirst(bundledRoot.count + 1)
+                category = relative.contains("/") ? String(relative.prefix(while: { $0 != "/" })) : "Other"
+            } else {
+                category = "Your Presets"
+            }
+            items.append(PresetItem(id: index, title: parsed.title, author: parsed.author, category: category))
         }
         return items
+    }
+
+    private func position(of filename: String) -> UInt32? {
+        guard let playlist else { return nil }
+        for index in 0..<projectm_playlist_size(playlist) {
+            guard let item = projectm_playlist_item(playlist, index) else { continue }
+            let path = String(cString: item)
+            projectm_playlist_free_string(item)
+            if path.hasSuffix("/" + filename) { return index }
+        }
+        return nil
     }
 
     func selectPreset(at index: UInt32) {
@@ -246,6 +264,10 @@ final class VisualizerView: NSOpenGLView {
         guard let playlist, let name = projectm_playlist_item(playlist, index) else { return }
         let filename = String(cString: name)
         projectm_playlist_free_string(name)
+
+        UserDefaults.standard.set(
+            URL(fileURLWithPath: filename).lastPathComponent, forKey: "currentPreset"
+        )
 
         let parsed = PresetItem.parse(filename: filename)
         if let author = parsed.author {

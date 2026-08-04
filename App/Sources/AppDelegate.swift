@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let audioEngine = AudioTapEngine()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: ["shufflePresets": true])
+        UserDefaults.standard.register(defaults: ["shufflePresets": true, "lockPreset": true])
 
         var major: Int32 = 0
         var minor: Int32 = 0
@@ -58,7 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let shuffle = makeItem("Shuffle Presets", #selector(toggleShuffle), "")
         shuffle.state = UserDefaults.standard.bool(forKey: "shufflePresets") ? .on : .off
         menu.addItem(shuffle)
-        menu.addItem(makeItem("Lock Preset", #selector(toggleLock), ""))
+        let lock = makeItem("Lock Preset", #selector(toggleLock), "")
+        lock.state = UserDefaults.standard.bool(forKey: "lockPreset") ? .on : .off
+        menu.addItem(lock)
         menu.addItem(makeItem("Browse Presets", #selector(showPresetBrowser), "b"))
         menu.addItem(.separator())
         menu.addItem(makeItem("Open Presets Folder", #selector(openPresetsFolder), ""))
@@ -114,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleLock(_ sender: NSMenuItem) {
         let locked = sender.state != .on
         sender.state = locked ? .on : .off
+        UserDefaults.standard.set(locked, forKey: "lockPreset")
         visualizerView?.setPresetLocked(locked)
     }
 
