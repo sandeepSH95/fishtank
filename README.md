@@ -1,6 +1,10 @@
 
 
 
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="Fishtank icon">
+</p>
+
 # fishtank
 
 A fish tank for your desk, except it plays [MilkDrop](https://www.geisswerks.com/milkdrop/)
