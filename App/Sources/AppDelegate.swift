@@ -72,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: "q"
         ))
         item.menu = menu
+        visualizerView?.contextMenu = menu
         return item
     }
 
@@ -142,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             window.title = "Presets"
             window.isReleasedWhenClosed = false
+            window.level = .floating
             window.contentView = NSHostingView(rootView: browser)
             window.center()
             presetBrowserWindow = window

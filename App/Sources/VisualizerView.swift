@@ -105,6 +105,13 @@ final class VisualizerView: NSOpenGLView {
 
     override var mouseDownCanMoveWindow: Bool { true }
 
+    weak var contextMenu: NSMenu?
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard let contextMenu else { return }
+        NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
+    }
+
     private static let cornerHitSize: CGFloat = 14
 
     private enum Corner {
