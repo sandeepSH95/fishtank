@@ -46,6 +46,7 @@ targets:
       - name: Copy presets and textures
         script: |
           rsync -a --delete --delete-excluded --exclude .git --exclude "! Transition" "$SRCROOT/vendor/presets-cream-of-the-crop/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Presets/"
+          rsync -a "$SRCROOT/App/Presets/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Presets/Fishtank/"
           rsync -a --delete "$SRCROOT/vendor/presets-milkdrop-texture-pack/textures/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Textures/"
         alwaysOutOfDate: true
     dependencies:

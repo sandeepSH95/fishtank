@@ -87,6 +87,9 @@ final class VisualizerView: NSOpenGLView {
             projectm_playlist_set_preset_switched_event_callback(
                 playlist, presetSwitchedCallback, Unmanaged.passUnretained(self).toOpaque()
             )
+            projectm_playlist_set_preset_switch_failed_event_callback(
+                playlist, presetSwitchFailedCallback, nil
+            )
 
             projectm_playlist_set_shuffle(playlist, UserDefaults.standard.bool(forKey: "shufflePresets"))
             let startPreset = UserDefaults.standard.string(forKey: "currentPreset") ?? Self.defaultPreset
@@ -239,7 +242,13 @@ final class VisualizerView: NSOpenGLView {
             } else {
                 category = "Your Presets"
             }
-            items.append(PresetItem(id: index, title: parsed.title, author: parsed.author, category: category))
+            items.append(PresetItem(
+                id: index,
+                title: parsed.title,
+                author: parsed.author,
+                category: category,
+                filename: URL(fileURLWithPath: path).lastPathComponent
+            ))
         }
         return items
     }
@@ -349,6 +358,7 @@ final class VisualizerView: NSOpenGLView {
         displayLink?.invalidate()
         if let playlist {
             projectm_playlist_set_preset_switched_event_callback(playlist, nil, nil)
+            projectm_playlist_set_preset_switch_failed_event_callback(playlist, nil, nil)
         }
         if let handle = projectM {
             projectm_destroy(handle)
@@ -357,6 +367,12 @@ final class VisualizerView: NSOpenGLView {
             projectm_playlist_destroy(playlist)
         }
     }
+}
+
+private let presetSwitchFailedCallback: projectm_playlist_preset_switch_failed_event = { filename, message, _ in
+    let name = filename.map { String(cString: $0) } ?? "?"
+    let reason = message.map { String(cString: $0) } ?? ""
+    NSLog("preset failed to load: %@ (%@)", name, reason)
 }
 
 private let presetSwitchedCallback: projectm_playlist_preset_switched_event = { _, index, userData in
