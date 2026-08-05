@@ -35,7 +35,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.sandeepSH95.fishtank
-        MARKETING_VERSION: 0.1.0
+        MARKETING_VERSION: 0.2.0
         CURRENT_PROJECT_VERSION: 1
         SWIFT_INCLUDE_PATHS: $(SRCROOT)/App/CProjectM $(SRCROOT)/App/CAudioRing
         HEADER_SEARCH_PATHS: $(SRCROOT)/vendor/dist/include

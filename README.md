@@ -1,20 +1,18 @@
 
-
-
 # fishtank
 
 <p align="center">
   <img src="assets/icon.png" width="128" alt="Fishtank icon">
 </p>
 
-A fish tank for your desk, except it plays [MilkDrop](https://www.geisswerks.com/milkdrop/)
+A fish tank for your desk, playing [MilkDrop](https://www.geisswerks.com/milkdrop/)
 visuals. A small always-on-top window of classic Winamp-era graphics that reacts to
-whatever audio your Mac is playing — Spotify, YouTube, anything — captured with Core
+whatever audio your Mac is playing (Spotify, YouTube, anything), captured with Core
 Audio process taps, no virtual audio device or routing setup required.
 
-https://github.com/user-attachments/assets/2975fa65-dfa4-4aa2-9bd6-b1f6d9cdf1b3
+<https://github.com/user-attachments/assets/2975fa65-dfa4-4aa2-9bd6-b1f6d9cdf1b3>
 
-It's meant to sit on your desktop like a piece of furniture: drag it into a corner,
+Sits on your desktop as a piece of furniture. Drag it into a corner,
 let it run, forget about it. It sleeps when the music stops.
 
 Rendering is done by [libprojectM](https://github.com/projectM-visualizer/projectm).
@@ -29,7 +27,7 @@ Apple Silicon and Intel, macOS 14.4+.
 The beta is not yet notarised, so the first launch needs one extra step:
 right-click the app and choose Open, or allow it afterwards under System
 Settings → Privacy & Security. On first launch macOS also asks permission to
-record system audio — that is the visualizer's input; nothing is recorded or
+record system audio: that is the visualizer's input; nothing is recorded or
 stored.
 
 ## Building

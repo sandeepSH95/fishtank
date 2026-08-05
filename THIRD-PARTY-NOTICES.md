@@ -16,8 +16,8 @@ Statically included in the libprojectM dylib:
 
 | Component | Licence |
 |---|---|
-| projectm-eval (projectM team) | MIT — `licenses/projectm-eval-MIT.txt` |
-| hlslparser (Unknown Worlds Entertainment) | MIT — `licenses/hlslparser-MIT.txt` |
+| projectm-eval (projectM team) | MIT (`licenses/projectm-eval-MIT.txt`) |
+| hlslparser (Unknown Worlds Entertainment) | MIT (`licenses/hlslparser-MIT.txt`) |
 | GLM (G-Truc Creation) | MIT per upstream `copying.txt`; the vendored subset ships no licence file |
 | SOIL2 (Martín Lucas Golini / Jonathan Dummer) | Public domain |
 
@@ -48,9 +48,9 @@ requests from preset authors will be honoured.
 
 No code from these is included:
 
-- frontend-sdl-cpp — **GPL-3.0; studied for API usage patterns only, code must not be
+- frontend-sdl-cpp: **GPL-3.0; studied for API usage patterns only, code must not be
   copied from it.**
-- ProjectMilkSyphon (Vidvox), Butterchurn (MIT), Webamp (MIT) — prior art.
+- ProjectMilkSyphon (Vidvox), Butterchurn (MIT), Webamp (MIT): prior art.
 
 When third-party code, assets, or presets are added, this file, `CREDITS.md`, and
 `licenses/` are updated in the same change.

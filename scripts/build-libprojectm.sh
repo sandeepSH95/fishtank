@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the vendored libprojectM (vendor/projectm, git submodule) as dylibs and
 # installs headers + libs into vendor/dist for the app to link against.
-# libprojectM is LGPL-2.1 — we link it dynamically; see THIRD-PARTY-NOTICES.md.
+# libprojectM is LGPL-2.1; we link it dynamically (see THIRD-PARTY-NOTICES.md).
 set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,7 +10,7 @@ BUILD="$SRC/build"
 DIST="$REPO_ROOT/vendor/dist"
 
 if [ ! -f "$SRC/CMakeLists.txt" ]; then
-    echo "vendor/projectm is empty — run: git submodule update --init --recursive --depth 1" >&2
+    echo "vendor/projectm is empty; run: git submodule update --init --recursive --depth 1" >&2
     exit 1
 fi
 

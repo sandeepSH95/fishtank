@@ -1,14 +1,14 @@
 # Credits
 
-- **Ryan Geiss** — MilkDrop, whose preset format and rendering model this app displays.
+- **Ryan Geiss**: MilkDrop, whose preset format and rendering model this app displays.
   <https://www.geisswerks.com/milkdrop/>
-- **The projectM team** — libprojectM, the rendering engine (LGPL-2.1, linked
+- **The projectM team**: libprojectM, the rendering engine (LGPL-2.1, linked
   dynamically). Kai Blaschke maintains the 4.x line.
   <https://github.com/projectM-visualizer/projectm>
-- **Guilherme Rambo** — [AudioCap](https://github.com/insidegui/AudioCap); the
+- **Guilherme Rambo**: [AudioCap](https://github.com/insidegui/AudioCap); the
   system-audio capture is adapted from it (BSD 2-Clause).
-- **Jason Fletcher** — the Cream of the Crop preset collection.
-- **Individual preset authors** — every visualisation is a `.milk` preset by a member
+- **Jason Fletcher**: the Cream of the Crop preset collection.
+- **Individual preset authors**: every visualisation is a `.milk` preset by a member
   of the MilkDrop community (Rovastar, Flexi, Geiss, Che, martin, Zylot, and many
   others). Authors are credited by name, per preset, in the app.
 
