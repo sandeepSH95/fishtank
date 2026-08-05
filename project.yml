@@ -16,12 +16,17 @@ targets:
       - App/CAudioRing
       - path: App/CProjectM
         buildPhase: none
+      - path: App/Resources
+        buildPhase: resources
       - path: CREDITS.md
         buildPhase: resources
     info:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Fishtank
+        CFBundleIconFile: AppIcon
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSMinimumSystemVersion: "14.4"
         NSAudioCaptureUsageDescription: >-
@@ -29,8 +34,9 @@ targets:
           Nothing is recorded or stored.
     settings:
       base:
-        # Placeholder bundle id until the app is named
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.fishtank
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.sandeepSH95.fishtank
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
         SWIFT_INCLUDE_PATHS: $(SRCROOT)/App/CProjectM $(SRCROOT)/App/CAudioRing
         HEADER_SEARCH_PATHS: $(SRCROOT)/vendor/dist/include
         LIBRARY_SEARCH_PATHS: $(SRCROOT)/vendor/dist/lib

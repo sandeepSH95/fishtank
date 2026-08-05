@@ -16,6 +16,18 @@ let it run, forget about it. It sleeps when the music stops.
 Rendering is done by [libprojectM](https://github.com/projectM-visualizer/projectm).
 Requires macOS 14.4+.
 
+## Download (beta)
+
+Grab the latest `Fishtank-x.y.z-beta.zip` from
+[Releases](../../releases), unzip, and drag `Fishtank.app` into Applications.
+Apple Silicon and Intel, macOS 14.4+.
+
+The beta is not yet notarised, so the first launch needs one extra step:
+right-click the app and choose Open, or allow it afterwards under System
+Settings → Privacy & Security. On first launch macOS also asks permission to
+record system audio — that is the visualizer's input; nothing is recorded or
+stored.
+
 ## Building
 
 Requires Xcode, CMake, and [XcodeGen](https://github.com/yonaskolb/XcodeGen).

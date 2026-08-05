@@ -18,7 +18,8 @@ cmake -S "$SRC" -B "$BUILD" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_SHARED_LIBS=ON \
     -DENABLE_PLAYLIST=ON \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4 \
+    "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
 cmake --build "$BUILD" --parallel "$(sysctl -n hw.ncpu)"
 cmake --install "$BUILD" --prefix "$DIST"
 
