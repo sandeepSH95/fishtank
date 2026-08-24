@@ -9,7 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let audioEngine = AudioTapEngine()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: ["shufflePresets": true, "lockPreset": true])
+        UserDefaults.standard.register(defaults: [
+            "shufflePresets": true,
+            "lockPreset": true,
+            "windowOpacity": 1.0,
+            "backgroundOpacity": 1.0,
+        ])
 
         var major: Int32 = 0
         var minor: Int32 = 0
@@ -35,6 +40,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.window = window
         visualizerView = view
 
+        let windowOpacity = max(0.15, UserDefaults.standard.double(forKey: "windowOpacity"))
+        let backgroundOpacity = UserDefaults.standard.double(forKey: "backgroundOpacity")
+        window.alphaValue = windowOpacity
+        view.backgroundOpacity = Float(backgroundOpacity)
+        window.hasShadow = backgroundOpacity >= 0.999
+
         statusItem = makeStatusItem()
     }
 
@@ -52,6 +63,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(makeItem("Hide Visualizer", #selector(toggleVisibility), ""))
         menu.addItem(makeItem("Click-Through", #selector(toggleClickThrough), ""))
+        menu.addItem(.separator())
+        menu.addItem(makeSliderItem(
+            title: "Window Opacity",
+            value: UserDefaults.standard.double(forKey: "windowOpacity"),
+            minValue: 0.15,
+            action: #selector(windowOpacityChanged)
+        ))
+        menu.addItem(makeSliderItem(
+            title: "Background Opacity",
+            value: UserDefaults.standard.double(forKey: "backgroundOpacity"),
+            minValue: 0,
+            action: #selector(backgroundOpacityChanged)
+        ))
         menu.addItem(.separator())
         menu.addItem(makeItem("Next Preset", #selector(nextPreset), ""))
         menu.addItem(makeItem("Previous Preset", #selector(previousPreset), ""))
@@ -80,6 +104,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
         return item
+    }
+
+    private func makeSliderItem(
+        title: String, value: Double, minValue: Double, action: Selector
+    ) -> NSMenuItem {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 46))
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 12)
+        label.textColor = .secondaryLabelColor
+        label.frame = NSRect(x: 14, y: 27, width: 192, height: 16)
+        let slider = NSSlider(value: value, minValue: minValue, maxValue: 1, target: self, action: action)
+        slider.isContinuous = true
+        slider.frame = NSRect(x: 12, y: 5, width: 196, height: 20)
+        container.addSubview(label)
+        container.addSubview(slider)
+        let item = NSMenuItem()
+        item.view = container
+        return item
+    }
+
+    @objc private func windowOpacityChanged(_ sender: NSSlider) {
+        UserDefaults.standard.set(sender.doubleValue, forKey: "windowOpacity")
+        window?.alphaValue = sender.doubleValue
+    }
+
+    @objc private func backgroundOpacityChanged(_ sender: NSSlider) {
+        UserDefaults.standard.set(sender.doubleValue, forKey: "backgroundOpacity")
+        visualizerView?.backgroundOpacity = Float(sender.doubleValue)
+        window?.hasShadow = sender.doubleValue >= 0.999
     }
 
     @objc private func toggleVisibility(_ sender: NSMenuItem) {

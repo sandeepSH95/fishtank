@@ -26,6 +26,17 @@ final class VisualizerView: NSOpenGLView {
     private var hasHeardAudio = false
     private var hintVisible = false
 
+    // Brightness-keyed transparency: 1 keeps the black background solid, 0 makes
+    // it fully see-through while bright content stays opaque.
+    var backgroundOpacity: Float = 1
+
+    private var passProgram: GLuint = 0
+    private var passVAO: GLuint = 0
+    private var passTexture: GLuint = 0
+    private var passTextureWidth: GLsizei = 0
+    private var passTextureHeight: GLsizei = 0
+    private var backgroundOpacityUniform: GLint = -1
+
     init(frame: NSRect, audioEngine: AudioTapEngine) {
         self.audioEngine = audioEngine
         let attributes: [NSOpenGLPixelFormatAttribute] = [
@@ -55,6 +66,9 @@ final class VisualizerView: NSOpenGLView {
         context.makeCurrentContext()
         var swapInterval: GLint = 1
         context.setValues(&swapInterval, for: .swapInterval)
+        var surfaceOpacity: GLint = 0
+        context.setValues(&surfaceOpacity, for: .surfaceOpacity)
+        setUpCompositePass()
 
         guard let handle = projectm_create() else {
             NSLog("projectm_create failed")
@@ -355,7 +369,106 @@ final class VisualizerView: NSOpenGLView {
         glClearColor(0, 0, 0, 1)
         glClear(GLbitfield(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
         projectm_opengl_render_frame(handle)
+        runCompositePass()
         context.flushBuffer()
+    }
+
+    // Copies the rendered frame and redraws it with alpha derived from brightness,
+    // so the window can show the desktop through dark areas.
+    private func runCompositePass() {
+        let backing = convertToBacking(bounds).size
+        let width = GLsizei(backing.width)
+        let height = GLsizei(backing.height)
+        guard width > 0, height > 0, passProgram != 0 else { return }
+
+        glBindTexture(GLenum(GL_TEXTURE_2D), passTexture)
+        if width != passTextureWidth || height != passTextureHeight {
+            glTexImage2D(
+                GLenum(GL_TEXTURE_2D), 0, GL_RGBA8, width, height, 0,
+                GLenum(GL_RGBA), GLenum(GL_UNSIGNED_BYTE), nil
+            )
+            passTextureWidth = width
+            passTextureHeight = height
+        }
+        glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), 0)
+        glCopyTexSubImage2D(GLenum(GL_TEXTURE_2D), 0, 0, 0, 0, 0, width, height)
+
+        glClearColor(0, 0, 0, 0)
+        glClear(GLbitfield(GL_COLOR_BUFFER_BIT))
+        glUseProgram(passProgram)
+        glActiveTexture(GLenum(GL_TEXTURE0))
+        glBindTexture(GLenum(GL_TEXTURE_2D), passTexture)
+        glUniform1f(backgroundOpacityUniform, backgroundOpacity)
+        glDisable(GLenum(GL_BLEND))
+        glBindVertexArray(passVAO)
+        glDrawArrays(GLenum(GL_TRIANGLES), 0, 3)
+        glBindVertexArray(0)
+        glUseProgram(0)
+    }
+
+    private func setUpCompositePass() {
+        let vertexSource = """
+        #version 410
+        out vec2 uv;
+        void main() {
+            vec2 pos = vec2(gl_VertexID == 2 ? 3.0 : -1.0, gl_VertexID == 1 ? 3.0 : -1.0);
+            uv = (pos + 1.0) * 0.5;
+            gl_Position = vec4(pos, 0.0, 1.0);
+        }
+        """
+        let fragmentSource = """
+        #version 410
+        in vec2 uv;
+        out vec4 fragColor;
+        uniform sampler2D frame;
+        uniform float backgroundOpacity;
+        void main() {
+            vec3 color = texture(frame, uv).rgb;
+            float brightness = max(max(color.r, color.g), color.b);
+            float alpha = mix(brightness, 1.0, backgroundOpacity);
+            fragColor = vec4(color * alpha, alpha);
+        }
+        """
+        let vertex = compileShader(GLenum(GL_VERTEX_SHADER), vertexSource)
+        let fragment = compileShader(GLenum(GL_FRAGMENT_SHADER), fragmentSource)
+        passProgram = glCreateProgram()
+        glAttachShader(passProgram, vertex)
+        glAttachShader(passProgram, fragment)
+        glLinkProgram(passProgram)
+        glDeleteShader(vertex)
+        glDeleteShader(fragment)
+        var linked: GLint = 0
+        glGetProgramiv(passProgram, GLenum(GL_LINK_STATUS), &linked)
+        if linked == 0 {
+            NSLog("composite pass failed to link")
+            passProgram = 0
+            return
+        }
+        glUseProgram(passProgram)
+        backgroundOpacityUniform = glGetUniformLocation(passProgram, "backgroundOpacity")
+        glUniform1i(glGetUniformLocation(passProgram, "frame"), 0)
+        glUseProgram(0)
+
+        glGenVertexArrays(1, &passVAO)
+        glGenTextures(1, &passTexture)
+        glBindTexture(GLenum(GL_TEXTURE_2D), passTexture)
+        glTexParameteri(GLenum(GL_TEXTURE_2D), GLenum(GL_TEXTURE_MIN_FILTER), GL_NEAREST)
+        glTexParameteri(GLenum(GL_TEXTURE_2D), GLenum(GL_TEXTURE_MAG_FILTER), GL_NEAREST)
+    }
+
+    private func compileShader(_ type: GLenum, _ source: String) -> GLuint {
+        let shader = glCreateShader(type)
+        source.withCString { cString in
+            var pointer: UnsafePointer<GLchar>? = cString
+            glShaderSource(shader, 1, &pointer, nil)
+        }
+        glCompileShader(shader)
+        var compiled: GLint = 0
+        glGetShaderiv(shader, GLenum(GL_COMPILE_STATUS), &compiled)
+        if compiled == 0 {
+            NSLog("shader failed to compile")
+        }
+        return shader
     }
 
     private func sleepUntilAudible() {
