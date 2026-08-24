@@ -50,18 +50,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         let menu = NSMenu()
-        menu.addItem(makeItem("Hide Visualizer", #selector(toggleVisibility), "h"))
-        menu.addItem(makeItem("Click-Through", #selector(toggleClickThrough), "t"))
+        menu.addItem(makeItem("Hide Visualizer", #selector(toggleVisibility), ""))
+        menu.addItem(makeItem("Click-Through", #selector(toggleClickThrough), ""))
         menu.addItem(.separator())
-        menu.addItem(makeItem("Next Preset", #selector(nextPreset), "n"))
-        menu.addItem(makeItem("Previous Preset", #selector(previousPreset), "p"))
+        menu.addItem(makeItem("Next Preset", #selector(nextPreset), ""))
+        menu.addItem(makeItem("Previous Preset", #selector(previousPreset), ""))
         let shuffle = makeItem("Shuffle Presets", #selector(toggleShuffle), "")
         shuffle.state = UserDefaults.standard.bool(forKey: "shufflePresets") ? .on : .off
         menu.addItem(shuffle)
         let lock = makeItem("Lock Preset", #selector(toggleLock), "")
         lock.state = UserDefaults.standard.bool(forKey: "lockPreset") ? .on : .off
         menu.addItem(lock)
-        menu.addItem(makeItem("Browse Presets", #selector(showPresetBrowser), "b"))
+        menu.addItem(makeItem("Browse Presets", #selector(showPresetBrowser), ""))
         menu.addItem(.separator())
         menu.addItem(makeItem("Open Presets Folder", #selector(openPresetsFolder), ""))
         menu.addItem(makeItem("Credits", #selector(showCredits), ""))
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(
             title: "Quit Fishtank",
             action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
+            keyEquivalent: ""
         ))
         item.menu = menu
         visualizerView?.contextMenu = menu
@@ -171,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = "Credits"
         window.isReleasedWhenClosed = false
+        window.level = .floating
         window.center()
 
         let scroll = NSScrollView(frame: window.contentLayoutRect)
@@ -179,15 +180,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let text = NSTextView(frame: scroll.bounds)
         text.isEditable = false
-        text.font = .systemFont(ofSize: 12)
         text.textContainerInset = NSSize(width: 12, height: 12)
         text.autoresizingMask = [.width]
         if let url = Bundle.main.url(forResource: "CREDITS", withExtension: "md"),
            let contents = try? String(contentsOf: url, encoding: .utf8) {
-            text.string = contents
+            text.textStorage?.setAttributedString(Self.renderMarkdown(contents))
         }
         scroll.documentView = text
         window.contentView = scroll
         return window
+    }
+
+    private static func renderMarkdown(_ markdown: String) -> NSAttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        guard let parsed = try? AttributedString(markdown: markdown, options: options) else {
+            return NSAttributedString(string: markdown)
+        }
+        let styled = NSMutableAttributedString(parsed)
+        let fullRange = NSRange(location: 0, length: styled.length)
+        styled.addAttribute(.foregroundColor, value: NSColor.labelColor, range: fullRange)
+        styled.enumerateAttribute(.font, in: fullRange) { value, range, _ in
+            let traits = (value as? NSFont)?.fontDescriptor.symbolicTraits ?? []
+            let font: NSFont = traits.contains(.bold)
+                ? .boldSystemFont(ofSize: 12)
+                : .systemFont(ofSize: 12)
+            styled.addAttribute(.font, value: font, range: range)
+        }
+        return styled
     }
 }

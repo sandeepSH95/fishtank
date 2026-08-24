@@ -22,6 +22,9 @@ final class VisualizerView: NSOpenGLView {
     private var isSleeping = false { didSet { updatePauseState() } }
     private var isOccluded = false { didSet { updatePauseState() } }
     private var wakeTimer: Timer?
+    private var hintTimer: Timer?
+    private var hasHeardAudio = false
+    private var hintVisible = false
 
     init(frame: NSRect, audioEngine: AudioTapEngine) {
         self.audioEngine = audioEngine
@@ -101,6 +104,12 @@ final class VisualizerView: NSOpenGLView {
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 30, preferred: 30)
         link.add(to: .main, forMode: .common)
         displayLink = link
+
+        hintTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
+            guard let self, !self.hasHeardAudio else { return }
+            self.hintVisible = true
+            self.overlay?.showPersistent("Waiting for audio…")
+        }
     }
 
     override var mouseDownCanMoveWindow: Bool { true }
@@ -144,21 +153,37 @@ final class VisualizerView: NSOpenGLView {
         guard let window else { return }
         let start = window.frame
         let anchor: NSPoint
+        let grabbedCorner: NSPoint
         switch corner {
-        case .bottomLeft: anchor = NSPoint(x: start.maxX, y: start.maxY)
-        case .bottomRight: anchor = NSPoint(x: start.minX, y: start.maxY)
-        case .topLeft: anchor = NSPoint(x: start.maxX, y: start.minY)
-        case .topRight: anchor = NSPoint(x: start.minX, y: start.minY)
+        case .bottomLeft:
+            anchor = NSPoint(x: start.maxX, y: start.maxY)
+            grabbedCorner = NSPoint(x: start.minX, y: start.minY)
+        case .bottomRight:
+            anchor = NSPoint(x: start.minX, y: start.maxY)
+            grabbedCorner = NSPoint(x: start.maxX, y: start.minY)
+        case .topLeft:
+            anchor = NSPoint(x: start.maxX, y: start.minY)
+            grabbedCorner = NSPoint(x: start.minX, y: start.maxY)
+        case .topRight:
+            anchor = NSPoint(x: start.minX, y: start.minY)
+            grabbedCorner = NSPoint(x: start.maxX, y: start.maxY)
         }
+        let startMouse = NSEvent.mouseLocation
+        let grabOffset = NSPoint(x: grabbedCorner.x - startMouse.x, y: grabbedCorner.y - startMouse.y)
         while true {
             guard let event = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]),
                   event.type == .leftMouseDragged else { break }
             let mouse = NSEvent.mouseLocation
-            let width = max(window.minSize.width, abs(mouse.x - anchor.x))
-            let height = max(window.minSize.height, abs(mouse.y - anchor.y))
+            var target = NSPoint(x: mouse.x + grabOffset.x, y: mouse.y + grabOffset.y)
+            if let limit = window.screen?.visibleFrame {
+                target.x = min(max(target.x, limit.minX), limit.maxX)
+                target.y = min(max(target.y, limit.minY), limit.maxY)
+            }
+            let width = max(window.minSize.width, abs(target.x - anchor.x))
+            let height = max(window.minSize.height, abs(target.y - anchor.y))
             var frame = NSRect(x: anchor.x, y: anchor.y, width: width, height: height)
-            if mouse.x < anchor.x { frame.origin.x = anchor.x - width }
-            if mouse.y < anchor.y { frame.origin.y = anchor.y - height }
+            if target.x < anchor.x { frame.origin.x = anchor.x - width }
+            if target.y < anchor.y { frame.origin.y = anchor.y - height }
             window.setFrame(frame, display: true)
             renderFrame()
         }
@@ -321,6 +346,7 @@ final class VisualizerView: NSOpenGLView {
         let now = CACurrentMediaTime()
         if peak > Self.silenceThreshold {
             lastAudibleTime = now
+            noteAudioHeard()
         } else if now - lastAudibleTime > Self.silenceTimeout {
             sleepUntilAudible()
             return
@@ -356,12 +382,25 @@ final class VisualizerView: NSOpenGLView {
             wakeTimer = nil
             lastAudibleTime = CACurrentMediaTime()
             isSleeping = false
+            noteAudioHeard()
+        }
+    }
+
+    private func noteAudioHeard() {
+        guard !hasHeardAudio else { return }
+        hasHeardAudio = true
+        hintTimer?.invalidate()
+        hintTimer = nil
+        if hintVisible {
+            hintVisible = false
+            overlay?.hide()
         }
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
         wakeTimer?.invalidate()
+        hintTimer?.invalidate()
         displayLink?.invalidate()
         if let playlist {
             projectm_playlist_set_preset_switched_event_callback(playlist, nil, nil)

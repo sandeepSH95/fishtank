@@ -42,21 +42,34 @@ final class PresetOverlay {
     }
 
     func show(_ text: String) {
+        fadeIn(text)
+        hideTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
+            self?.hide(duration: 1)
+        }
+    }
+
+    // Stays visible until hide() is called.
+    func showPersistent(_ text: String) {
+        fadeIn(text)
+    }
+
+    func hide(duration: TimeInterval = 0.5) {
+        hideTimer?.invalidate()
+        hideTimer = nil
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            overlayWindow.animator().alphaValue = 0
+        }
+    }
+
+    private func fadeIn(_ text: String) {
         hideTimer?.invalidate()
         label.stringValue = text
         label.sizeToFit()
         reposition()
-
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.3
             overlayWindow.animator().alphaValue = 1
-        }
-        hideTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 1
-                self.overlayWindow.animator().alphaValue = 0
-            }
         }
     }
 
