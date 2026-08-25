@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "lockPreset": true,
             "windowOpacity": 1.0,
             "backgroundOpacity": 1.0,
+            "softEdges": false,
         ])
 
         var major: Int32 = 0
@@ -41,10 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         visualizerView = view
 
         let windowOpacity = max(0.15, UserDefaults.standard.double(forKey: "windowOpacity"))
-        let backgroundOpacity = UserDefaults.standard.double(forKey: "backgroundOpacity")
         window.alphaValue = windowOpacity
-        view.backgroundOpacity = Float(backgroundOpacity)
-        window.hasShadow = backgroundOpacity >= 0.999
+        view.backgroundOpacity = Float(UserDefaults.standard.double(forKey: "backgroundOpacity"))
+        view.softEdges = UserDefaults.standard.bool(forKey: "softEdges")
+        updateWindowShadow()
 
         statusItem = makeStatusItem()
     }
@@ -76,6 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             minValue: 0,
             action: #selector(backgroundOpacityChanged)
         ))
+        let softEdges = makeItem("Soft Edges", #selector(toggleSoftEdges), "")
+        softEdges.state = UserDefaults.standard.bool(forKey: "softEdges") ? .on : .off
+        menu.addItem(softEdges)
         menu.addItem(.separator())
         menu.addItem(makeItem("Next Preset", #selector(nextPreset), ""))
         menu.addItem(makeItem("Previous Preset", #selector(previousPreset), ""))
@@ -132,7 +136,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func backgroundOpacityChanged(_ sender: NSSlider) {
         UserDefaults.standard.set(sender.doubleValue, forKey: "backgroundOpacity")
         visualizerView?.backgroundOpacity = Float(sender.doubleValue)
-        window?.hasShadow = sender.doubleValue >= 0.999
+        updateWindowShadow()
+    }
+
+    @objc private func toggleSoftEdges(_ sender: NSMenuItem) {
+        let enabled = sender.state != .on
+        sender.state = enabled ? .on : .off
+        UserDefaults.standard.set(enabled, forKey: "softEdges")
+        visualizerView?.softEdges = enabled
+        updateWindowShadow()
+    }
+
+    private func updateWindowShadow() {
+        let opaqueBackground = UserDefaults.standard.double(forKey: "backgroundOpacity") >= 0.999
+        let softEdges = UserDefaults.standard.bool(forKey: "softEdges")
+        window?.hasShadow = opaqueBackground && !softEdges
     }
 
     @objc private func toggleVisibility(_ sender: NSMenuItem) {

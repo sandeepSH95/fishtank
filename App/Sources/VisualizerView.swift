@@ -28,7 +28,10 @@ final class VisualizerView: NSOpenGLView {
 
     // Brightness-keyed transparency: 1 keeps the black background solid, 0 makes
     // it fully see-through while bright content stays opaque.
-    var backgroundOpacity: Float = 1
+    var backgroundOpacity: Float = 1 { didSet { refreshIfPaused() } }
+
+    // Fades the picture out toward every window edge when enabled.
+    var softEdges = false { didSet { refreshIfPaused() } }
 
     private var passProgram: GLuint = 0
     private var passVAO: GLuint = 0
@@ -36,6 +39,7 @@ final class VisualizerView: NSOpenGLView {
     private var passTextureWidth: GLsizei = 0
     private var passTextureHeight: GLsizei = 0
     private var backgroundOpacityUniform: GLint = -1
+    private var edgeFalloffUniform: GLint = -1
 
     init(frame: NSRect, audioEngine: AudioTapEngine) {
         self.audioEngine = audioEngine
@@ -199,7 +203,7 @@ final class VisualizerView: NSOpenGLView {
             if target.x < anchor.x { frame.origin.x = anchor.x - width }
             if target.y < anchor.y { frame.origin.y = anchor.y - height }
             window.setFrame(frame, display: true)
-            renderFrame()
+            refresh()
         }
     }
 
@@ -366,11 +370,29 @@ final class VisualizerView: NSOpenGLView {
             return
         }
 
+        draw(handle)
+    }
+
+    private func draw(_ handle: projectm_handle) {
         glClearColor(0, 0, 0, 1)
         glClear(GLbitfield(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
         projectm_opengl_render_frame(handle)
         runCompositePass()
-        context.flushBuffer()
+        openGLContext?.flushBuffer()
+    }
+
+    // Renders one frame outside the display link, so paused states (silence,
+    // occlusion) still reflect setting and size changes immediately.
+    private func refresh() {
+        guard let handle = projectM, let context = openGLContext else { return }
+        context.makeCurrentContext()
+        draw(handle)
+    }
+
+    private func refreshIfPaused() {
+        if displayLink?.isPaused == true {
+            refresh()
+        }
     }
 
     // Copies the rendered frame and redraws it with alpha derived from brightness,
@@ -399,6 +421,7 @@ final class VisualizerView: NSOpenGLView {
         glActiveTexture(GLenum(GL_TEXTURE0))
         glBindTexture(GLenum(GL_TEXTURE_2D), passTexture)
         glUniform1f(backgroundOpacityUniform, backgroundOpacity)
+        glUniform1f(edgeFalloffUniform, softEdges ? 1 : 0)
         glDisable(GLenum(GL_BLEND))
         glBindVertexArray(passVAO)
         glDrawArrays(GLenum(GL_TRIANGLES), 0, 3)
@@ -422,10 +445,16 @@ final class VisualizerView: NSOpenGLView {
         out vec4 fragColor;
         uniform sampler2D frame;
         uniform float backgroundOpacity;
+        uniform float edgeFalloff;
         void main() {
             vec3 color = texture(frame, uv).rgb;
             float brightness = max(max(color.r, color.g), color.b);
             float alpha = mix(brightness, 1.0, backgroundOpacity);
+            vec2 size = vec2(textureSize(frame, 0));
+            vec2 edge = min(uv, 1.0 - uv) * size;
+            float width = 0.15 * min(size.x, size.y);
+            float mask = smoothstep(0.0, width, edge.x) * smoothstep(0.0, width, edge.y);
+            alpha *= mix(1.0, mask, edgeFalloff);
             fragColor = vec4(color * alpha, alpha);
         }
         """
@@ -446,6 +475,7 @@ final class VisualizerView: NSOpenGLView {
         }
         glUseProgram(passProgram)
         backgroundOpacityUniform = glGetUniformLocation(passProgram, "backgroundOpacity")
+        edgeFalloffUniform = glGetUniformLocation(passProgram, "edgeFalloff")
         glUniform1i(glGetUniformLocation(passProgram, "frame"), 0)
         glUseProgram(0)
 
