@@ -449,7 +449,8 @@ final class VisualizerView: NSOpenGLView {
         void main() {
             vec3 color = texture(frame, uv).rgb;
             float brightness = max(max(color.r, color.g), color.b);
-            float alpha = mix(brightness, 1.0, backgroundOpacity);
+            float keyed = smoothstep(0.06, 0.4, brightness);
+            float alpha = mix(keyed, 1.0, backgroundOpacity);
             vec2 size = vec2(textureSize(frame, 0));
             vec2 edge = min(uv, 1.0 - uv) * size;
             float width = 0.15 * min(size.x, size.y);
