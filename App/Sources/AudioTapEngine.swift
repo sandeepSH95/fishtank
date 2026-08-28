@@ -13,6 +13,12 @@ final class AudioTapEngine {
         case ringAllocation
     }
 
+    // 65536 floats is ~0.68 s of stereo 48 kHz audio. The ring is allocated once and
+    // survives stop()/start() cycles: the IO block captures the pointer, and an
+    // in-flight callback must never outlive the buffer it writes to. It is freed
+    // only in deinit, after the IO proc and device-change listener are gone.
+    private static let ringCapacityFloats = 65536
+
     private(set) var sampleRate = 44100.0
     private(set) var channelCount = 2
 
@@ -56,8 +62,10 @@ final class AudioTapEngine {
         err = AudioHardwareCreateAggregateDevice(aggregate as CFDictionary, &aggregateID)
         guard err == noErr else { throw Error.coreAudio("create aggregate device", err) }
 
-        guard let ring = audio_ring_create(65536) else { throw Error.ringAllocation }
-        self.ring = ring
+        if ring == nil {
+            ring = audio_ring_create(Self.ringCapacityFloats)
+        }
+        guard let ring else { throw Error.ringAllocation }
 
         err = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggregateID, queue) { _, inInputData, _, _, _ in
             let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inInputData))
@@ -94,10 +102,6 @@ final class AudioTapEngine {
             AudioHardwareDestroyProcessTap(tapID)
             tapID = AudioObjectID(kAudioObjectUnknown)
         }
-        if let ring {
-            audio_ring_destroy(ring)
-            self.ring = nil
-        }
     }
 
     deinit {
@@ -108,6 +112,9 @@ final class AudioTapEngine {
             )
         }
         stop()
+        if let ring {
+            audio_ring_destroy(ring)
+        }
     }
 
     // Capture follows the default output device; rebuild the tap when it changes.

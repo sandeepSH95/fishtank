@@ -10,10 +10,10 @@ struct audio_ring {
     _Atomic size_t tail;
 };
 
-audio_ring *audio_ring_create(size_t capacity)
+audio_ring *audio_ring_create(size_t capacity_floats)
 {
     size_t cap = 1;
-    while (cap < capacity)
+    while (cap < capacity_floats)
         cap <<= 1;
 
     audio_ring *ring = calloc(1, sizeof *ring);

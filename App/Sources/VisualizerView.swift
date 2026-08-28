@@ -28,10 +28,21 @@ final class VisualizerView: NSOpenGLView {
 
     // Brightness-keyed transparency: 1 keeps the black background solid, 0 makes
     // it fully see-through while bright content stays opaque.
-    var backgroundOpacity: Float = 1 { didSet { refreshIfPaused() } }
+    var backgroundOpacity: Float = 1 {
+        didSet { if oldValue != backgroundOpacity { refreshIfPaused() } }
+    }
 
     // Fades the picture out toward every window edge when enabled.
-    var softEdges = false { didSet { refreshIfPaused() } }
+    var softEdges = false {
+        didSet { if oldValue != softEdges { refreshIfPaused() } }
+    }
+
+    // Reports the preset filename on every switch; the owner persists it.
+    var onPresetSwitched: ((String) -> Void)?
+
+    private let initialShuffle: Bool
+    private let initialLock: Bool
+    private let startPreset: String
 
     private var passProgram: GLuint = 0
     private var passVAO: GLuint = 0
@@ -41,8 +52,11 @@ final class VisualizerView: NSOpenGLView {
     private var backgroundOpacityUniform: GLint = -1
     private var edgeFalloffUniform: GLint = -1
 
-    init(frame: NSRect, audioEngine: AudioTapEngine) {
+    init(frame: NSRect, audioEngine: AudioTapEngine, shuffle: Bool, lockPreset: Bool, startPreset: String) {
         self.audioEngine = audioEngine
+        self.initialShuffle = shuffle
+        self.initialLock = lockPreset
+        self.startPreset = startPreset
         let attributes: [NSOpenGLPixelFormatAttribute] = [
             NSOpenGLPixelFormatAttribute(NSOpenGLPFAOpenGLProfile),
             NSOpenGLPixelFormatAttribute(NSOpenGLProfileVersion4_1Core),
@@ -112,10 +126,9 @@ final class VisualizerView: NSOpenGLView {
                 playlist, presetSwitchFailedCallback, nil
             )
 
-            projectm_playlist_set_shuffle(playlist, UserDefaults.standard.bool(forKey: "shufflePresets"))
-            let startPreset = UserDefaults.standard.string(forKey: "currentPreset") ?? Self.defaultPreset
+            projectm_playlist_set_shuffle(playlist, initialShuffle)
             projectm_playlist_set_position(playlist, position(of: startPreset) ?? 0, true)
-            projectm_set_preset_locked(handle, UserDefaults.standard.bool(forKey: "lockPreset"))
+            projectm_set_preset_locked(handle, initialLock)
         }
 
         let link = displayLink(target: self, selector: #selector(renderFrame))
@@ -246,6 +259,8 @@ final class VisualizerView: NSOpenGLView {
         }
     }
 
+    // Reallocates projectM's internal framebuffers on every resize tick. Wasteful
+    // during a drag, but it has not shown up as felt jank; measure before changing.
     override func reshape() {
         super.reshape()
         guard let handle = projectM, let context = openGLContext else { return }
@@ -324,9 +339,7 @@ final class VisualizerView: NSOpenGLView {
         let filename = String(cString: name)
         projectm_playlist_free_string(name)
 
-        UserDefaults.standard.set(
-            URL(fileURLWithPath: filename).lastPathComponent, forKey: "currentPreset"
-        )
+        onPresetSwitched?(URL(fileURLWithPath: filename).lastPathComponent)
 
         let parsed = PresetItem.parse(filename: filename)
         if let author = parsed.author {
@@ -344,22 +357,31 @@ final class VisualizerView: NSOpenGLView {
         displayLink?.isPaused = isOccluded || isSleeping
     }
 
-    @objc private func renderFrame() {
-        guard let handle = projectM, let context = openGLContext else { return }
-        context.makeCurrentContext()
-
+    // Empties the ring into projectM and returns the peak magnitude seen. Runs in
+    // both awake and sleeping states so the first frame after waking already has
+    // the audio that caused the wake.
+    private func drainAudio(into handle: projectm_handle) -> Float {
         var peak: Float = 0
         while true {
             let samplesRead = drainBuffer.withUnsafeMutableBufferPointer { pointer in
                 audioEngine.read(into: pointer.baseAddress!, maxSamples: pointer.count)
             }
             guard samplesRead >= 2 else { break }
-            for i in 0..<samplesRead where abs(drainBuffer[i]) > peak {
-                peak = abs(drainBuffer[i])
+            for i in 0..<samplesRead {
+                let magnitude = abs(drainBuffer[i])
+                if magnitude > peak { peak = magnitude }
             }
             projectm_pcm_add_float(handle, drainBuffer, UInt32(samplesRead / 2), PROJECTM_STEREO)
             if samplesRead < drainBuffer.count { break }
         }
+        return peak
+    }
+
+    @objc private func renderFrame() {
+        guard let handle = projectM, let context = openGLContext else { return }
+        context.makeCurrentContext()
+
+        let peak = drainAudio(into: handle)
 
         let now = CACurrentMediaTime()
         if peak > Self.silenceThreshold {
@@ -396,7 +418,10 @@ final class VisualizerView: NSOpenGLView {
     }
 
     // Copies the rendered frame and redraws it with alpha derived from brightness,
-    // so the window can show the desktop through dark areas.
+    // so the window can show the desktop through dark areas. Runs even at default
+    // settings: the GL surface is permanently non-opaque, and skipping the pass
+    // would present projectM's undefined alpha channel directly. The full-window
+    // copy is the known, paid-for price of a consistent path.
     private func runCompositePass() {
         let backing = convertToBacking(bounds).size
         let width = GLsizei(backing.width)
@@ -470,7 +495,11 @@ final class VisualizerView: NSOpenGLView {
         var linked: GLint = 0
         glGetProgramiv(passProgram, GLenum(GL_LINK_STATUS), &linked)
         if linked == 0 {
-            NSLog("composite pass failed to link")
+            var length: GLint = 0
+            glGetProgramiv(passProgram, GLenum(GL_INFO_LOG_LENGTH), &length)
+            var log = [GLchar](repeating: 0, count: Int(max(length, 1)))
+            glGetProgramInfoLog(passProgram, length, nil, &log)
+            NSLog("composite pass failed to link: %@", String(cString: log))
             passProgram = 0
             return
         }
@@ -497,9 +526,19 @@ final class VisualizerView: NSOpenGLView {
         var compiled: GLint = 0
         glGetShaderiv(shader, GLenum(GL_COMPILE_STATUS), &compiled)
         if compiled == 0 {
-            NSLog("shader failed to compile")
+            let kind = type == GLenum(GL_VERTEX_SHADER) ? "vertex" : "fragment"
+            NSLog("%@ shader failed to compile: %@", kind, infoLog(shader: shader))
         }
         return shader
+    }
+
+    private func infoLog(shader: GLuint) -> String {
+        var length: GLint = 0
+        glGetShaderiv(shader, GLenum(GL_INFO_LOG_LENGTH), &length)
+        guard length > 0 else { return "(no info log)" }
+        var log = [GLchar](repeating: 0, count: Int(length))
+        glGetShaderInfoLog(shader, length, nil, &log)
+        return String(cString: log)
     }
 
     private func sleepUntilAudible() {
@@ -510,17 +549,8 @@ final class VisualizerView: NSOpenGLView {
     }
 
     private func checkForWake() {
-        var peak: Float = 0
-        while true {
-            let samplesRead = drainBuffer.withUnsafeMutableBufferPointer { pointer in
-                audioEngine.read(into: pointer.baseAddress!, maxSamples: pointer.count)
-            }
-            guard samplesRead > 0 else { break }
-            for i in 0..<samplesRead where abs(drainBuffer[i]) > peak {
-                peak = abs(drainBuffer[i])
-            }
-            if samplesRead < drainBuffer.count { break }
-        }
+        guard let handle = projectM else { return }
+        let peak = drainAudio(into: handle)
         if peak > Self.silenceThreshold {
             wakeTimer?.invalidate()
             wakeTimer = nil
